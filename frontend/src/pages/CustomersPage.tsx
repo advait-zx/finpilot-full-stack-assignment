@@ -1,0 +1,9 @@
+import { FormEvent, useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
+import { api } from '../api'
+
+type Customer={customer_id:string;full_name:string;email:string;city:string;state:string;kyc_status:string;segment:string}
+export default function CustomersPage(){ const [items,setItems]=useState<Customer[]>([]); const [q,setQ]=useState(''); const [loading,setLoading]=useState(true); const [error,setError]=useState('');
+  async function load(search=''){setLoading(true);setError('');try{const r=await api<{items:Customer[]}>(`/customers?q=${encodeURIComponent(search)}`);setItems(r.items)}catch(e){setError(e instanceof Error?e.message:'Failed')}finally{setLoading(false)}}
+  useEffect(()=>{load()},[]); function submit(e:FormEvent){e.preventDefault();load(q)}
+  return <section><div className="page-header"><div><p className="eyebrow">Customer servicing</p><h1>Customers</h1><p className="muted">Search by customer ID, name, email or city.</p></div></div><form className="search-row" onSubmit={submit}><input aria-label="Search customers" placeholder="Search customers…" value={q} onChange={e=>setQ(e.target.value)}/><button className="primary">Search</button></form>{error&&<div className="error-box">{error}</div>}{loading?<div className="state-card">Loading customers…</div>:items.length===0?<div className="state-card">No customers found.</div>:<div className="table-card"><table><thead><tr><th>Customer</th><th>Location</th><th>KYC</th><th>Segment</th><th></th></tr></thead><tbody>{items.map(c=><tr key={c.customer_id}><td><strong>{c.full_name}</strong><span>{c.customer_id} · {c.email}</span></td><td>{c.city}, {c.state}</td><td><span className={`status ${c.kyc_status.toLowerCase()}`}>{c.kyc_status}</span></td><td>{c.segment}</td><td><Link className="text-link" to={`/customers/${c.customer_id}`}>Open →</Link></td></tr>)}</tbody></table></div>}</section> }
