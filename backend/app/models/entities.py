@@ -1,8 +1,22 @@
 from datetime import date, datetime
 from decimal import Decimal
-from sqlalchemy import CheckConstraint, Date, DateTime, ForeignKey, Index, Integer, Numeric, String, UniqueConstraint, func
+
+from sqlalchemy import (
+    CheckConstraint,
+    Date,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    Numeric,
+    String,
+    UniqueConstraint,
+    func,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+
 from app.models.base import Base
+
 
 class User(Base):
     __tablename__ = "users"
@@ -11,6 +25,7 @@ class User(Base):
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     role: Mapped[str] = mapped_column(String(20), nullable=False)
     __table_args__ = (CheckConstraint("role IN ('VIEWER','ADMIN')", name="ck_users_role"),)
+
 
 class Customer(Base):
     __tablename__ = "customers"
@@ -32,10 +47,13 @@ class Customer(Base):
         CheckConstraint("segment IN ('Mass','Affluent','HNI')", name="ck_customers_segment"),
     )
 
+
 class Account(Base):
     __tablename__ = "accounts"
     account_id: Mapped[str] = mapped_column(String(20), primary_key=True)
-    customer_id: Mapped[str] = mapped_column(ForeignKey("customers.customer_id", ondelete="RESTRICT"), nullable=False, index=True)
+    customer_id: Mapped[str] = mapped_column(
+        ForeignKey("customers.customer_id", ondelete="RESTRICT"), nullable=False, index=True
+    )
     account_type: Mapped[str] = mapped_column(String(30), nullable=False)
     provider: Mapped[str] = mapped_column(String(150), nullable=False)
     opened_at: Mapped[date] = mapped_column(Date, nullable=False)
@@ -46,6 +64,7 @@ class Account(Base):
         CheckConstraint("account_type IN ('BROKERAGE','MUTUAL_FUND','RETIREMENT')", name="ck_accounts_type"),
         CheckConstraint("status IN ('ACTIVE','CLOSED','DORMANT')", name="ck_accounts_status"),
     )
+
 
 class Instrument(Base):
     __tablename__ = "instruments"
@@ -60,11 +79,16 @@ class Instrument(Base):
     price_as_of: Mapped[date] = mapped_column(Date, nullable=False)
     risk_band: Mapped[str] = mapped_column(String(20), nullable=False)
 
+
 class HoldingSnapshot(Base):
     __tablename__ = "holdings_snapshot"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    account_id: Mapped[str] = mapped_column(ForeignKey("accounts.account_id", ondelete="RESTRICT"), nullable=False, index=True)
-    instrument_id: Mapped[str] = mapped_column(ForeignKey("instruments.instrument_id", ondelete="RESTRICT"), nullable=False, index=True)
+    account_id: Mapped[str] = mapped_column(
+        ForeignKey("accounts.account_id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    instrument_id: Mapped[str] = mapped_column(
+        ForeignKey("instruments.instrument_id", ondelete="RESTRICT"), nullable=False, index=True
+    )
     quantity: Mapped[Decimal] = mapped_column(Numeric(20, 6), nullable=False)
     avg_cost: Mapped[Decimal] = mapped_column(Numeric(18, 4), nullable=False)
     snapshot_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
@@ -75,11 +99,16 @@ class HoldingSnapshot(Base):
         Index("ix_holdings_account_snapshot", "account_id", "snapshot_date"),
     )
 
+
 class Transaction(Base):
     __tablename__ = "transactions"
     transaction_id: Mapped[str] = mapped_column(String(30), primary_key=True)
-    account_id: Mapped[str] = mapped_column(ForeignKey("accounts.account_id", ondelete="RESTRICT"), nullable=False, index=True)
-    instrument_id: Mapped[str | None] = mapped_column(ForeignKey("instruments.instrument_id", ondelete="RESTRICT"), nullable=True, index=True)
+    account_id: Mapped[str] = mapped_column(
+        ForeignKey("accounts.account_id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    instrument_id: Mapped[str | None] = mapped_column(
+        ForeignKey("instruments.instrument_id", ondelete="RESTRICT"), nullable=True, index=True
+    )
     transaction_type: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
     trade_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
     quantity: Mapped[Decimal] = mapped_column(Numeric(20, 6), nullable=False)
@@ -94,10 +123,13 @@ class Transaction(Base):
         Index("ix_transactions_account_trade_date", "account_id", "trade_date"),
     )
 
+
 class Goal(Base):
     __tablename__ = "goals"
     goal_id: Mapped[str] = mapped_column(String(30), primary_key=True)
-    customer_id: Mapped[str] = mapped_column(ForeignKey("customers.customer_id", ondelete="CASCADE"), nullable=False, index=True)
+    customer_id: Mapped[str] = mapped_column(
+        ForeignKey("customers.customer_id", ondelete="CASCADE"), nullable=False, index=True
+    )
     goal_type: Mapped[str] = mapped_column(String(30), nullable=False)
     goal_name: Mapped[str] = mapped_column(String(180), nullable=False)
     target_amount: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False)
@@ -111,10 +143,13 @@ class Goal(Base):
         CheckConstraint("priority IN ('LOW','MEDIUM','HIGH')", name="ck_goals_priority"),
     )
 
+
 class RiskProfile(Base):
     __tablename__ = "risk_profiles"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    customer_id: Mapped[str] = mapped_column(ForeignKey("customers.customer_id", ondelete="CASCADE"), nullable=False, index=True)
+    customer_id: Mapped[str] = mapped_column(
+        ForeignKey("customers.customer_id", ondelete="CASCADE"), nullable=False, index=True
+    )
     risk_score: Mapped[int] = mapped_column(Integer, nullable=False)
     risk_level: Mapped[str] = mapped_column(String(30), nullable=False)
     assessed_at: Mapped[date] = mapped_column(Date, nullable=False, index=True)
@@ -128,6 +163,7 @@ class RiskProfile(Base):
         CheckConstraint("liquidity_need IN ('LOW','MEDIUM','HIGH')", name="ck_risk_liquidity"),
     )
 
+
 class ImportBatch(Base):
     __tablename__ = "import_batches"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -136,10 +172,13 @@ class ImportBatch(Base):
     rejected_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
+
 class ImportReject(Base):
     __tablename__ = "import_rejects"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    batch_id: Mapped[int] = mapped_column(ForeignKey("import_batches.id", ondelete="CASCADE"), nullable=False, index=True)
+    batch_id: Mapped[int] = mapped_column(
+        ForeignKey("import_batches.id", ondelete="CASCADE"), nullable=False, index=True
+    )
     row_number: Mapped[int] = mapped_column(Integer, nullable=False)
     entity_type: Mapped[str] = mapped_column(String(50), nullable=False)
     raw_payload: Mapped[str] = mapped_column(String, nullable=False)

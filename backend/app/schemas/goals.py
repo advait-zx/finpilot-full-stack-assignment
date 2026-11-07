@@ -1,9 +1,11 @@
 from datetime import date
 from decimal import Decimal
+
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-GOAL_TYPES = {"EDUCATION","EMERGENCY_FUND","HOME_PURCHASE","RETIREMENT","TRAVEL","WEALTH_CREATION"}
-PRIORITIES = {"LOW","MEDIUM","HIGH"}
+GOAL_TYPES = {"EDUCATION", "EMERGENCY_FUND", "HOME_PURCHASE", "RETIREMENT", "TRAVEL", "WEALTH_CREATION"}
+PRIORITIES = {"LOW", "MEDIUM", "HIGH"}
+
 
 class GoalCreate(BaseModel):
     goal_type: str
@@ -23,6 +25,7 @@ class GoalCreate(BaseModel):
             raise ValueError("invalid priority")
         return self
 
+
 class GoalUpdate(BaseModel):
     goal_name: str | None = Field(default=None, min_length=2, max_length=180)
     target_amount: Decimal | None = Field(default=None, gt=0)
@@ -37,6 +40,7 @@ class GoalUpdate(BaseModel):
             if self.priority not in PRIORITIES:
                 raise ValueError("invalid priority")
         return self
+
 
 class GoalOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
