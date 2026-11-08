@@ -142,12 +142,80 @@ Reviewer SQL examples are in `docs/sql-demo.sql`, including top AUM customers, a
 - `GET /api/v1/customers`
 - `GET /api/v1/customers/{customer_id}`
 - `GET /api/v1/customers/{customer_id}/portfolio`
-- `GET /api/v1/customers/{customer_id}/transactions`
+- `GET /api/v1/customers/{customer_id}/transactions` (server-side filters, sorting and pagination)
 - `GET /api/v1/customers/{customer_id}/goals`
 - `POST /api/v1/customers/{customer_id}/goals`
 - `PATCH /api/v1/goals/{goal_id}`
 - `POST /api/v1/admin/imports/transactions`
 - `GET /health`
+
+### API examples
+
+All protected endpoints require `Authorization: Bearer <token>` after login. The examples below are abbreviated so reviewers can see the contract quickly; Swagger at `http://localhost:8000/docs` shows the live schema.
+
+**Portfolio request**
+
+```http
+GET /api/v1/customers/C0002/portfolio HTTP/1.1
+Host: localhost:8000
+Authorization: Bearer <token>
+```
+
+Example response:
+
+```json
+{
+  "customer_id": "C0002",
+  "total_market_value": 125430.50,
+  "account_totals": [
+    {"account_id": "A00002", "market_value": 125430.50}
+  ],
+  "asset_allocation": [
+    {"asset_class": "EQUITY", "market_value": 75258.30, "percentage": 60.0}
+  ],
+  "positions": [],
+  "price_as_of": "2026-09-30",
+  "snapshot_date": "2026-09-30"
+}
+```
+
+**Transaction sorting request**
+
+```http
+GET /api/v1/customers/C0002/transactions?page=1&page_size=25&sort_by=amount&sort_order=desc HTTP/1.1
+Host: localhost:8000
+Authorization: Bearer <token>
+```
+
+Supported `sort_by` values are `trade_date`, `amount`, `transaction_type` and `account_id`; `sort_order` accepts `asc` or `desc`. Filtering can be combined with sorting and pagination.
+
+**Transaction CSV import request**
+
+```bash
+curl -X POST "http://localhost:8000/api/v1/admin/imports/transactions" \
+  -H "Authorization: Bearer <admin-token>" \
+  -F "file=@data/transactions_import_demo.csv"
+```
+
+Example response:
+
+```json
+{
+  "batch_id": 3,
+  "file_name": "transactions_import_demo.csv",
+  "imported_count": 1,
+  "rejected_count": 1,
+  "rejections": [
+    {
+      "row_number": 3,
+      "reason": "duplicate transaction_id",
+      "raw_payload": {"transaction_id": "T0000001"}
+    }
+  ]
+}
+```
+
+The exact counts depend on the uploaded file and current database state. Re-uploading a previously imported transaction ID is intentionally rejected rather than silently overwriting data.
 
 ## Repository structure
 

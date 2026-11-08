@@ -3,10 +3,236 @@ import { Link, useParams } from 'react-router-dom'
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts'
 import { api } from '../api'
 
-type Profile={customer:any;latest_risk_profile:any;accounts:any[]}
-type Portfolio={total_market_value:number;asset_allocation:{asset_class:string;market_value:number;percentage:number}[];positions:any[];price_as_of:string;snapshot_date:string;account_totals:any[]}
-type Goal={goal_id:string;goal_name:string;goal_type:string;target_amount:number;current_funded_amount:number;funded_percentage:number;target_date:string;priority:string;overdue:boolean;inconsistent:boolean}
-const fmt=(n:number)=>new Intl.NumberFormat('en-IN',{style:'currency',currency:'INR',maximumFractionDigits:0}).format(n)
-export default function CustomerPage(){const {id}=useParams();const [profile,setProfile]=useState<Profile|null>(null);const [portfolio,setPortfolio]=useState<Portfolio|null>(null);const [goals,setGoals]=useState<Goal[]>([]);const [error,setError]=useState('');
-useEffect(()=>{if(!id)return;Promise.all([api<Profile>(`/customers/${id}`),api<Portfolio>(`/customers/${id}/portfolio`),api<Goal[]>(`/customers/${id}/goals`)]).then(([p,po,g])=>{setProfile(p);setPortfolio(po);setGoals(g)}).catch(e=>setError(e.message))},[id])
-if(error)return <div className="error-box">{error}</div>; if(!profile||!portfolio)return <div className="state-card">Loading portfolio…</div>; const c=profile.customer; return <section><div className="page-header"><div><Link className="text-link" to="/customers">← Customers</Link><h1>{c.full_name}</h1><p className="muted">{c.customer_id} · {c.email} · {c.city}, {c.state}</p></div><Link className="secondary-button" to={`/customers/${id}/transactions`}>View transactions</Link></div><div className="kpi-grid"><div className="kpi"><span>Total market value</span><strong>{fmt(portfolio.total_market_value)}</strong><small>Snapshot {portfolio.snapshot_date}</small></div><div className="kpi"><span>Risk profile</span><strong>{profile.latest_risk_profile?.risk_level||'Unavailable'}</strong><small>Score {profile.latest_risk_profile?.risk_score??'—'} / 100</small></div><div className="kpi"><span>KYC status</span><strong>{c.kyc_status}</strong><small>{c.segment} segment</small></div><div className="kpi"><span>Financial goals</span><strong>{goals.length}</strong><small>{goals.filter(g=>g.priority==='HIGH').length} high priority</small></div></div><div className="dashboard-grid"><div className="card"><div className="card-title"><h2>Asset allocation</h2><span>Prices {portfolio.price_as_of}</span></div><div className="chart-wrap"><ResponsiveContainer width="100%" height={260}><PieChart><Pie data={portfolio.asset_allocation} dataKey="market_value" nameKey="asset_class" innerRadius={62} outerRadius={94} paddingAngle={2}>{portfolio.asset_allocation.map((_,i)=><Cell key={i}/>)}</Pie><Tooltip formatter={(v)=>fmt(Number(v))}/></PieChart></ResponsiveContainer></div><div className="legend-list">{portfolio.asset_allocation.map(a=><div key={a.asset_class}><span>{a.asset_class}</span><strong>{a.percentage}%</strong></div>)}</div></div><div className="card"><div className="card-title"><h2>Goals</h2><Link className="text-link" to={`/customers/${id}/goals`}>Manage goals →</Link></div><div className="goal-list">{goals.slice(0,5).map(g=><div className="goal" key={g.goal_id}><div><strong>{g.goal_name}</strong><span>{g.priority} · due {g.target_date}</span></div><div className="progress"><i style={{width:`${Math.min(g.funded_percentage,100)}%`}}/></div><div className="goal-foot"><span>{g.funded_percentage}% funded</span><span>{fmt(g.current_funded_amount)} / {fmt(g.target_amount)}</span></div>{(g.overdue||g.inconsistent)&&<small className="warning">{g.overdue?'Overdue':'Funding exceeds target'}</small>}</div>)}</div></div></div><div className="card table-card"><div className="card-title"><h2>Positions</h2><span>{portfolio.positions.length} positions</span></div><div className="table-scroll"><table><thead><tr><th>Instrument</th><th>Asset class</th><th>Qty</th><th>Avg cost</th><th>Latest price</th><th>Market value</th><th>Unrealised P/L</th></tr></thead><tbody>{portfolio.positions.map((p:any)=><tr key={`${p.account_id}-${p.instrument_id}`}><td><strong>{p.symbol}</strong><span>{p.instrument_name}<br/>{p.account_id}</span></td><td>{p.asset_class}</td><td>{Number(p.quantity).toLocaleString()}</td><td>{fmt(Number(p.avg_cost))}</td><td>{fmt(Number(p.last_price))}</td><td>{fmt(Number(p.market_value))}</td><td className={Number(p.unrealised_pnl)>=0?'positive':'negative'}>{fmt(Number(p.unrealised_pnl))}</td></tr>)}</tbody></table></div></div></section>}
+type Profile = { customer: any; latest_risk_profile: any; accounts: any[] }
+type AccountTotal = { account_id: string; market_value: number }
+type Portfolio = {
+  total_market_value: number
+  asset_allocation: { asset_class: string; market_value: number; percentage: number }[]
+  positions: any[]
+  price_as_of: string
+  snapshot_date: string
+  account_totals: AccountTotal[]
+}
+type Goal = {
+  goal_id: string
+  goal_name: string
+  goal_type: string
+  target_amount: number
+  current_funded_amount: number
+  funded_percentage: number
+  target_date: string
+  priority: string
+  overdue: boolean
+  inconsistent: boolean
+}
+
+const fmt = (n: number) =>
+  new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(n)
+
+export default function CustomerPage() {
+  const { id } = useParams()
+  const [profile, setProfile] = useState<Profile | null>(null)
+  const [portfolio, setPortfolio] = useState<Portfolio | null>(null)
+  const [goals, setGoals] = useState<Goal[]>([])
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    if (!id) return
+    Promise.all([
+      api<Profile>(`/customers/${id}`),
+      api<Portfolio>(`/customers/${id}/portfolio`),
+      api<Goal[]>(`/customers/${id}/goals`),
+    ])
+      .then(([p, po, g]) => {
+        setProfile(p)
+        setPortfolio(po)
+        setGoals(g)
+      })
+      .catch((e) => setError(e.message))
+  }, [id])
+
+  if (error) return <div className="error-box">{error}</div>
+  if (!profile || !portfolio) return <div className="state-card">Loading portfolio…</div>
+
+  const c = profile.customer
+  const accountDetails = new Map(profile.accounts.map((a) => [a.account_id, a]))
+
+  return (
+    <section>
+      <div className="page-header">
+        <div>
+          <Link className="text-link" to="/customers">
+            ← Customers
+          </Link>
+          <h1>{c.full_name}</h1>
+          <p className="muted">
+            {c.customer_id} · {c.email} · {c.city}, {c.state}
+          </p>
+        </div>
+        <Link className="secondary-button" to={`/customers/${id}/transactions`}>
+          View transactions
+        </Link>
+      </div>
+
+      <div className="kpi-grid">
+        <div className="kpi">
+          <span>Total market value</span>
+          <strong>{fmt(portfolio.total_market_value)}</strong>
+          <small>Snapshot {portfolio.snapshot_date}</small>
+        </div>
+        <div className="kpi">
+          <span>Risk profile</span>
+          <strong>{profile.latest_risk_profile?.risk_level || 'Unavailable'}</strong>
+          <small>Score {profile.latest_risk_profile?.risk_score ?? '—'} / 100</small>
+        </div>
+        <div className="kpi">
+          <span>KYC status</span>
+          <strong>{c.kyc_status}</strong>
+          <small>{c.segment} segment</small>
+        </div>
+        <div className="kpi">
+          <span>Financial goals</span>
+          <strong>{goals.length}</strong>
+          <small>{goals.filter((g) => g.priority === 'HIGH').length} high priority</small>
+        </div>
+      </div>
+
+      <div className="card account-totals-card">
+        <div className="card-title">
+          <h2>Account totals</h2>
+          <span>{portfolio.account_totals.length} accounts with positions</span>
+        </div>
+        <div className="account-total-grid">
+          {portfolio.account_totals.map((a) => {
+            const detail = accountDetails.get(a.account_id)
+            return (
+              <div className="account-total" key={a.account_id}>
+                <div>
+                  <strong>{a.account_id}</strong>
+                  <span>
+                    {detail?.account_type || 'Investment account'}
+                    {detail?.provider ? ` · ${detail.provider}` : ''}
+                  </span>
+                </div>
+                <strong>{fmt(Number(a.market_value))}</strong>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
+      <div className="dashboard-grid">
+        <div className="card">
+          <div className="card-title">
+            <h2>Asset allocation</h2>
+            <span>Prices {portfolio.price_as_of}</span>
+          </div>
+          <div className="chart-wrap">
+            <ResponsiveContainer width="100%" height={260}>
+              <PieChart>
+                <Pie
+                  data={portfolio.asset_allocation}
+                  dataKey="market_value"
+                  nameKey="asset_class"
+                  innerRadius={62}
+                  outerRadius={94}
+                  paddingAngle={2}
+                >
+                  {portfolio.asset_allocation.map((_, i) => (
+                    <Cell key={i} />
+                  ))}
+                </Pie>
+                <Tooltip formatter={(v) => fmt(Number(v))} />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="legend-list">
+            {portfolio.asset_allocation.map((a) => (
+              <div key={a.asset_class}>
+                <span>{a.asset_class}</span>
+                <strong>{a.percentage}%</strong>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="card">
+          <div className="card-title">
+            <h2>Goals</h2>
+            <Link className="text-link" to={`/customers/${id}/goals`}>
+              Manage goals →
+            </Link>
+          </div>
+          <div className="goal-list">
+            {goals.slice(0, 5).map((g) => (
+              <div className="goal" key={g.goal_id}>
+                <div>
+                  <strong>{g.goal_name}</strong>
+                  <span>
+                    {g.priority} · due {g.target_date}
+                  </span>
+                </div>
+                <div className="progress">
+                  <i style={{ width: `${Math.min(g.funded_percentage, 100)}%` }} />
+                </div>
+                <div className="goal-foot">
+                  <span>{g.funded_percentage}% funded</span>
+                  <span>
+                    {fmt(g.current_funded_amount)} / {fmt(g.target_amount)}
+                  </span>
+                </div>
+                {(g.overdue || g.inconsistent) && (
+                  <small className="warning">{g.overdue ? 'Overdue' : 'Funding exceeds target'}</small>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="card table-card">
+        <div className="card-title">
+          <h2>Positions</h2>
+          <span>{portfolio.positions.length} positions</span>
+        </div>
+        <div className="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Instrument</th>
+                <th>Asset class</th>
+                <th>Qty</th>
+                <th>Avg cost</th>
+                <th>Latest price</th>
+                <th>Market value</th>
+                <th>Unrealised P/L</th>
+              </tr>
+            </thead>
+            <tbody>
+              {portfolio.positions.map((p: any) => (
+                <tr key={`${p.account_id}-${p.instrument_id}`}>
+                  <td>
+                    <strong>{p.symbol}</strong>
+                    <span>
+                      {p.instrument_name}
+                      <br />
+                      {p.account_id}
+                    </span>
+                  </td>
+                  <td>{p.asset_class}</td>
+                  <td>{Number(p.quantity).toLocaleString()}</td>
+                  <td>{fmt(Number(p.avg_cost))}</td>
+                  <td>{fmt(Number(p.last_price))}</td>
+                  <td>{fmt(Number(p.market_value))}</td>
+                  <td className={Number(p.unrealised_pnl) >= 0 ? 'positive' : 'negative'}>
+                    {fmt(Number(p.unrealised_pnl))}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  )
+}

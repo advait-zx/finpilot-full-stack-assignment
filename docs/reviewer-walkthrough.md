@@ -58,3 +58,9 @@ Explain why this is a modular monolith, why PostgreSQL performs aggregation, why
 ## 6. CI / Git
 
 After pushing to GitHub, show `.github/workflows/ci.yml` and one successful Actions run. Do not claim CI evidence until a real run succeeds.
+
+## Reviewer checks added for the final pass
+
+- Transactions support server-side filtering, sorting and pagination. In the UI, try sorting by amount descending and then by trade date ascending.
+- The portfolio overview shows both the consolidated customer market value and per-account market-value totals.
+- README API examples document the portfolio response and the ADMIN transaction import request/response, while Swagger remains the authoritative live contract.

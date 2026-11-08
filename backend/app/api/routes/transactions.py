@@ -1,8 +1,9 @@
 from datetime import date
 from math import ceil
+from typing import Literal
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import func, select
+from sqlalchemy import asc, desc, func, select
 from sqlalchemy.orm import Session
 
 from app.api.deps import current_user
@@ -10,6 +11,13 @@ from app.db.session import get_db
 from app.models.entities import Account, Instrument, Transaction
 
 router = APIRouter(prefix="/customers", tags=["transactions"], dependencies=[Depends(current_user)])
+
+SORT_COLUMNS = {
+    "trade_date": Transaction.trade_date,
+    "amount": Transaction.amount,
+    "transaction_type": Transaction.transaction_type,
+    "account_id": Transaction.account_id,
+}
 
 
 @router.get("/{customer_id}/transactions")
@@ -20,6 +28,8 @@ def transactions(
     account_id: str | None = None,
     instrument_id: str | None = None,
     transaction_type: str | None = None,
+    sort_by: Literal["trade_date", "amount", "transaction_type", "account_id"] = "trade_date",
+    sort_order: Literal["asc", "desc"] = "desc",
     page: int = Query(1, ge=1),
     page_size: int = Query(25, ge=1, le=100),
     db: Session = Depends(get_db),
@@ -36,6 +46,7 @@ def transactions(
         .join(Account, Account.account_id == Transaction.account_id)
         .where(Account.customer_id == customer_id)
     )
+
     filters = []
     if start_date:
         filters.append(Transaction.trade_date >= start_date)
@@ -47,15 +58,22 @@ def transactions(
         filters.append(Transaction.instrument_id == instrument_id)
     if transaction_type:
         filters.append(Transaction.transaction_type == transaction_type.upper())
+
     if filters:
         base = base.where(*filters)
         count_stmt = count_stmt.where(*filters)
+
     total = db.scalar(count_stmt) or 0
+    sort_column = SORT_COLUMNS[sort_by]
+    order_expression = asc(sort_column) if sort_order == "asc" else desc(sort_column)
+
+    # Stable secondary ordering avoids rows jumping between pages when primary values are equal.
     rows = db.execute(
-        base.order_by(Transaction.trade_date.desc(), Transaction.transaction_id.desc())
+        base.order_by(order_expression, Transaction.transaction_id.desc())
         .offset((page - 1) * page_size)
         .limit(page_size)
     ).all()
+
     items = []
     for tx, symbol, name in rows:
         items.append(
@@ -73,6 +91,7 @@ def transactions(
                 "status": tx.status,
             }
         )
+
     return {
         "items": items,
         "meta": {
@@ -80,5 +99,7 @@ def transactions(
             "page_size": page_size,
             "total": total,
             "pages": ceil(total / page_size) if total else 0,
+            "sort_by": sort_by,
+            "sort_order": sort_order,
         },
     }
